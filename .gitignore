@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Datos del Servicio Social
+data/input/*
+!data/input/.gitkeep
+data/output/*
+!data/output/.gitkeep
+
+# Archivos de configuración de sistema (Linux/Mac)
+.DS_Store
+.directory

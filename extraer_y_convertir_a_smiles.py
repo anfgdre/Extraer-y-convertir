@@ -1,56 +1,47 @@
 import os
 from openbabel import openbabel
 
+# Configuración dinámica de rutas
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+INPUT_DIR = os.path.join(BASE_DIR, "data", "input")
+OUTPUT_DIR = os.path.join(BASE_DIR, "data", "output")
+
 def extraer_y_convertir_quimica(nombre_archivo):
     coordenadas = []
     en_seccion = False
+    factor_bohr_to_angstrom = 0.529177
     
     if not os.path.exists(nombre_archivo):
-        print(f"ERROR: No se encuentra el archivo en {nombre_archivo}")
-        return None, None
+        raise FileNotFoundError(f"No se encontró: {nombre_archivo}")
 
     with open(nombre_archivo, 'r') as f:
         for linea in f:
             linea_limpia = linea.strip()
             
-            # 1. Buscamos la sección 
             if "Nuclear Charges and Cartesian Coordinates" in linea:
                 en_seccion = True
                 continue
             
             if en_seccion:
-                # Si la línea tiene datos (generalmente empieza con el símbolo del átomo)
                 partes = linea_limpia.split()
-                
-                # Un dato válido suele tener: Atomo, Carga, X, Y, Z (5 columnas)
                 if len(partes) >= 5:
                     try:
-                        # Extraer símbolo químico 
                         simbolo = "".join([c for c in partes[0] if c.isalpha()])
-                        
-                        # Conversión Bohr a Angstrom
-                        factor = 0.529177
-                        x = float(partes[2]) * factor
-                        y = float(partes[3]) * factor
-                        z = float(partes[4]) * factor
-                        
+                        x = float(partes[2]) * factor_bohr_to_angstrom
+                        y = float(partes[3]) * factor_bohr_to_angstrom
+                        z = float(partes[4]) * factor_bohr_to_angstrom
                         coordenadas.append(f"{simbolo} {x:10.6f} {y:10.6f} {z:10.6f}")
                     except ValueError:
-                        # Si no se pueden convertir a float, saltamos la línea (encabezados)
                         continue
-                
-                # Si encontramos una línea vacía después de haber empezado a leer, terminamos
                 elif not linea_limpia and len(coordenadas) > 0:
                     break
 
     if not coordenadas:
-        print("No se encontraron coordenadas. Revisar el contenido del archivo .sumviz")
         return None, None
 
-    # Crear el bloque de texto XYZ
     bloque_xyz = f"{len(coordenadas)}\nGenerado desde {os.path.basename(nombre_archivo)}\n" + "\n".join(coordenadas)
     
-    # --- Configurar Open Babel ---
+    # --- Open Babel Logic ---
     obConv = openbabel.OBConversion()
     obConv.SetInAndOutFormats("xyz", "smi")
     mol = openbabel.OBMol()
@@ -63,17 +54,22 @@ def extraer_y_convertir_quimica(nombre_archivo):
     
     return smiles_final, bloque_xyz
 
-# --- CONFIGURACIÓN DE RUTAS ---
-#--carpeta = ruta donde se buscara el archivo.sumviz
-carpeta = "/home/andreamona/Documentos/Servicio social/OpenBabel/"
-archivo_in = os.path.join(carpeta, "aimel_000001.sumviz") #nombre del archivo exacto
-archivo_smi = os.path.join(carpeta, "resultado_final1.smi") #nombre del archivo que se creara (SMILES)
-archivo_xyz = os.path.join(carpeta, "visualizacion1.xyz") #nombre del archivo que se crea (xyz)
+def ejecutar_procesamiento(archivo_nombre):
+    # Asegurar que la carpeta de salida exista
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    
+    ruta_in = os.path.join(INPUT_DIR, archivo_nombre)
+    nombre_base = os.path.splitext(archivo_nombre)[0]
+    
+    try:
+        smiles, xyz_data = extraer_y_convertir_quimica(ruta_in)
+        if smiles:
+            with open(os.path.join(OUTPUT_DIR, f"{nombre_base}.smi"), "w") as f: f.write(smiles + "\n")
+            with open(os.path.join(OUTPUT_DIR, f"{nombre_base}.xyz"), "w") as f: f.write(xyz_data)
+            print(f"✅ Procesado con éxito: {archivo_nombre}")
+    except Exception as e:
+        print(f"❌ Error en {archivo_nombre}: {e}")
 
-smiles, xyz_data = extraer_y_convertir_quimica(archivo_in)
-
-if smiles and xyz_data:
-    with open(archivo_smi, "w") as f: f.write(smiles + "\n")
-    with open(archivo_xyz, "w") as f: f.write(xyz_data)
-    print(f"SMILES: {smiles}")
-    print(f"Éxito: Se procesaron {len(xyz_data.splitlines()) - 2} átomos.")
+if __name__ == "__main__":
+    # Ejemplo: Procesar un archivo específico
+    ejecutar_procesamiento("aimel_000001.sumviz")
