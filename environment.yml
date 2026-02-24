@@ -1,0 +1,7 @@
+name: check_sumviz_sanity
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - openbabel
