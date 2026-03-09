@@ -1,5 +1,9 @@
 import os
 
+def write_report(filepath: str, text: str):
+    pass
+
+
 def validar_archivos_sumviz():
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     INPUT_DIR = os.path.join(BASE_DIR, "data", "input")
@@ -21,7 +25,9 @@ def validar_archivos_sumviz():
                 seccion_encontrada = True
         
         if seccion_encontrada:
-            print(f"{archivo}: Formato válido.")
+            result = f"{archivo}: Formato válido."
+            print(result)
+            write_report(filepath=report_filepath, text=result)
         else:
             print(f"{archivo}: Falta la sección de coordenadas.")
 

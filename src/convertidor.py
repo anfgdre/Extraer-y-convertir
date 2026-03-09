@@ -55,7 +55,7 @@ def extraer_y_convertir_quimica(ruta_archivo):
             mol.PerceiveBondOrders()
             smiles_final = obConv.WriteString(mol).strip()
             
-        return smiles_final, bloque_xyz
+        return smiles_final, bloque_xyz # Tal vez en algunos casos, sea necesario escribir el xyz sin obtener el smiles. Podemos separarlos?
 
     except Exception as e:
         print(f"Error procesando el archivo: {e}")
