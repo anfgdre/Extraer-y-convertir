@@ -1,125 +1,140 @@
 import os
 import glob
+import math
+import time
+import json
+from collections import Counter
+from datetime import datetime
+# Asegúrate de tener instalado openbabel (pip install openbabel)
 from openbabel import openbabel
 
-# --- CONFIGURACIÓN DINÁMICA DE RUTAS ---
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(_file_)))
+# --- CONFIGURACIÓN DE RUTAS ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_DIR = os.path.join(BASE_DIR, "data", "input")
-OUTPUT_DIR = os.path.join(BASE_DIR, "data", "output")
+OUTPUT_BASE_DIR = os.path.join(BASE_DIR, "data", "output")
+
+def calcular_distancia(p1, p2):
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(p1, p2)))
+
+def obtener_metadatos_molecula(lista_coords):
+    puntos = []
+    atomos = []
+    for c in lista_coords:
+        parts = c.split()
+        atomos.append(parts[0])
+        puntos.append(tuple(map(float, parts[1:])))
+    
+    max_d = 0.0
+    for i in range(len(puntos)):
+        for j in range(i + 1, len(puntos)):
+            d = calcular_distancia(puntos[i], puntos[j])
+            if d > max_d: max_d = d
+            
+    formula = dict(Counter(atomos))
+    return round(max_d, 3), formula
 
 def extraer_coordenadas_sumviz(ruta_archivo):
-    """
-    Función independiente: Extrae puramente las coordenadas de un .sumviz.
-    Retorna un string formateado en XYZ o None si falla.
-    """
     coordenadas = []
     en_seccion = False
     factor_bohr_to_angstrom = 0.529177
-    
+    elementos_quimicos = {"H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", 
+                         "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca"}
+
     try:
-        with open(ruta_archivo, 'r') as f:
+        with open(ruta_archivo, 'r', encoding='utf-8') as f:
             for linea in f:
                 linea_limpia = linea.strip()
-                if "Nuclear Charges and Cartesian Coordinates" in linea:
+                if "Nuclear Charges and Cartesian Coordinates" in linea_limpia:
                     en_seccion = True
                     continue
-                
                 if en_seccion:
-                    partes = linea_limpia.split()
-                    if len(partes) >= 5:
-                        try:
-                            simbolo = "".join([c for c in partes[0] if c.isalpha()])
-                            x = float(partes[2]) * factor_bohr_to_angstrom
-                            y = float(partes[3]) * factor_bohr_to_angstrom
-                            z = float(partes[4]) * factor_bohr_to_angstrom
-                            coordenadas.append(f"{simbolo} {x:10.6f} {y:10.6f} {z:10.6f}")
-                        except ValueError:
-                            continue
-                    elif not linea_limpia and len(coordenadas) > 0:
+                    if not linea_limpia and len(coordenadas) > 0:
+                        en_seccion = False
                         break
-
-        if not coordenadas:
-            return None
-
-        # Retorna el bloque XYZ listo para escribir o procesar
-        return f"{len(coordenadas)}\nExtraído de {os.path.basename(ruta_archivo)}\n" + "\n".join(coordenadas)
-    except Exception as e:
-        print(f"Error en extracción: {e}")
-        return None
-
-def convertir_xyz_a_smiles(bloque_xyz):
-    """
-    Función independiente: Recibe un string XYZ y devuelve un SMILES usando Open Babel.
-    """
-    try:
-        obConv = openbabel.OBConversion()
-        obConv.SetInAndOutFormats("xyz", "smi")
-        mol = openbabel.OBMol()
-        
-        if obConv.ReadString(mol, bloque_xyz):
-            mol.ConnectTheDots()
-            mol.PerceiveBondOrders()
-            return obConv.WriteString(mol).strip()
-    except Exception as e:
-        print(f"Error en Open Babel: {e}")
-    return None
+                    if "Some Atomic Properties" in linea_limpia or "q(A) =" in linea_limpia:
+                        en_seccion = False
+                        break
+                    partes = linea_limpia.split()
+                    if len(partes) == 5:
+                        nombre_raw = partes[0]
+                        simbolo = "".join([c for c in nombre_raw if c.isalpha()])
+                        if simbolo in elementos_quimicos:
+                            try:
+                                x = float(partes[2]) * factor_bohr_to_angstrom
+                                y = float(partes[3]) * factor_bohr_to_angstrom
+                                z = float(partes[4]) * factor_bohr_to_angstrom
+                                coordenadas.append(f"{simbolo} {x:10.6f} {y:10.6f} {z:10.6f}")
+                            except ValueError:
+                                continue
+        if not coordenadas: return None, 0, {}
+        max_dist, formula = obtener_metadatos_molecula(coordenadas)
+        return coordenadas, max_dist, formula
+    except Exception:
+        return None, 0, {}
 
 def ejecutar_procesamiento(incluir_smiles=False):
-    """
-    Orquestador: Recorre la carpeta y decide qué funciones llamar.
-    """
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    nombre_carpeta = f"Ejecucion_{timestamp}"
+    ruta_salida_actual = os.path.join(OUTPUT_BASE_DIR, nombre_carpeta)
+    os.makedirs(ruta_salida_actual, exist_ok=True)
+
     archivos = glob.glob(os.path.join(INPUT_DIR, "*.sumviz"))
-    
     if not archivos:
-        print(f"\n[!] No hay archivos .sumviz en {INPUT_DIR}")
+        print(f"\n[!] No se encontraron archivos en: {INPUT_DIR}")
         return
 
-    print(f"\n--- Procesando {len(archivos)} archivos ---")
+    reporte_maestro = {
+        "sesion": nombre_carpeta,
+        "fecha_ejecucion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "total_archivos": len(archivos),
+        "resultados": []
+    }
+
     for ruta in archivos:
+        start_time = time.time()
         nombre = os.path.splitext(os.path.basename(ruta))[0]
+        coord_list, max_d, formula = extraer_coordenadas_sumviz(ruta)
         
-        # 1. Siempre extraemos XYZ
-        xyz_data = extraer_coordenadas_sumviz(ruta)
-        
-        if xyz_data:
-            # Guardar XYZ
-            with open(os.path.join(OUTPUT_DIR, f"{nombre}.xyz"), "w") as f:
-                f.write(xyz_data)
+        datos = {"archivo": nombre, "estado": "Error", "metadatos": {}, "conversion": {}}
+
+        if coord_list:
+            xyz_block = f"{len(coord_list)}\n{nombre}\n" + "\n".join(coord_list)
+            with open(os.path.join(ruta_salida_actual, f"{nombre}.xyz"), "w") as f:
+                f.write(xyz_block)
             
-            # 2. Solo si el usuario pidió SMILES
+            datos["metadatos"] = {"distancia_max_A": max_d, "conteo_atomos": formula}
+            
             if incluir_smiles:
-                smiles = convertir_xyz_a_smiles(xyz_data)
-                if smiles:
-                    with open(os.path.join(OUTPUT_DIR, f"{nombre}.smi"), "w") as f:
+                obConv = openbabel.OBConversion()
+                obConv.SetInAndOutFormats("xyz", "smi")
+                mol = openbabel.OBMol()
+                if obConv.ReadString(mol, xyz_block):
+                    mol.ConnectTheDots()
+                    mol.PerceiveBondOrders()
+                    smiles = obConv.WriteString(mol).strip()
+                    with open(os.path.join(ruta_salida_actual, f"{nombre}.smi"), "w") as f:
                         f.write(smiles + "\n")
-                    print(f"[OK] {nombre}: XYZ + SMILES")
+                    datos["estado"] = "Exito"
+                    datos["conversion"]["smiles"] = smiles
                 else:
-                    print(f"[!] {nombre}: XYZ guardado, pero falló SMILES")
+                    datos["estado"] = "Error SMILES"
             else:
-                print(f"[OK] {nombre}: Solo XYZ")
-        else:
-            print(f"[ERROR] {nombre}: No se detectaron coordenadas")
+                datos["estado"] = "Exito"
+        
+        datos["conversion"]["tiempo_seg"] = round(time.time() - start_time, 4)
+        reporte_maestro["resultados"].append(datos)
+        print(f"-> {nombre}: {datos['estado']}")
+
+    with open(os.path.join(ruta_salida_actual, "reporte.json"), 'w') as f:
+        json.dump(reporte_maestro, f, indent=4)
 
 def menu():
     while True:
-        print("\n" + "="*30)
-        print("  EXTRACTOR DE COORDENADAS  ")
-        print("="*30)
-        print("1. Extraer solo archivos XYZ")
-        print("2. Extraer XYZ y generar SMILES")
-        print("3. Salir")
-        opcion = input("\nSelecciona una opción: ")
+        print("\n1. Extraer XYZ\n2. Extraer XYZ + SMILES\n3. Salir")
+        op = input("Opción: ")
+        if op == "1": ejecutar_procesamiento(False)
+        elif op == "2": ejecutar_procesamiento(True)
+        elif op == "3": break
 
-        if opcion == "1":
-            ejecutar_procesamiento(incluir_smiles=False)
-        elif opcion == "2":
-            ejecutar_procesamiento(incluir_smiles=True)
-        elif opcion == "3":
-            print("Saliendo...")
-            break
-        else:
-            print("Opción no válida.")
-
-if _name_ == "_main_":
+if __name__ == "__main__":
     menu()
