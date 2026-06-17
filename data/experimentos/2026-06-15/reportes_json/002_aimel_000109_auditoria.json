@@ -1,0 +1,21 @@
+{
+    "identificador_serial": "002_aimel_000109",
+    "archivo_origen": "aimel_000109",
+    "fecha_procesamiento": "2026-06-15 20:03:36",
+    "status_calidad": "PASSED",
+    "metrics": {
+        "dist_max_A": 4.3963,
+        "num_anomalias": 0,
+        "formula_estequiometrica": {
+            "N": 2,
+            "C": 3,
+            "H": 2
+        }
+    },
+    "quimica": {
+        "smiles_openbabel": "N#CCC#N",
+        "smiles_rdkit": "[H]C([H])(C#N)C#N",
+        "validacion_cruzada_smiles": false
+    },
+    "detalles_anomalias": []
+}

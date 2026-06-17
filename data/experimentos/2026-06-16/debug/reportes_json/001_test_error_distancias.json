@@ -1,0 +1,26 @@
+{
+  "matriz": [
+    {
+      "de": "C(0)",
+      "a": "H(1)",
+      "dist_A": 0.0
+    },
+    {
+      "de": "C(0)",
+      "a": "O(2)",
+      "dist_A": 1.2775
+    },
+    {
+      "de": "H(1)",
+      "a": "O(2)",
+      "dist_A": 1.2775
+    }
+  ],
+  "alertas": [
+    {
+      "par": "C(0)-H(1)",
+      "distancia": 0.0,
+      "tipo": "Choque At\u00f3mico"
+    }
+  ]
+}

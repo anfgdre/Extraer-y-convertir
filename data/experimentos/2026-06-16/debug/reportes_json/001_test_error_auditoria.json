@@ -1,0 +1,27 @@
+{
+    "identificador_serial": "001_test_error",
+    "archivo_origen": "test_error",
+    "fecha_procesamiento": "2026-06-16 19:44:39",
+    "status_calidad": "DEBUG",
+    "metrics": {
+        "dist_max_A": 1.2775,
+        "num_anomalias": 1,
+        "formula_estequiometrica": {
+            "C": 1,
+            "H": 1,
+            "O": 1
+        }
+    },
+    "quimica": {
+        "smiles_openbabel": "[C].[OH]",
+        "smiles_rdkit": null,
+        "validacion_cruzada_smiles": false
+    },
+    "detalles_anomalias": [
+        {
+            "par": "C(0)-H(1)",
+            "distancia": 0.0,
+            "tipo": "Choque At\u00f3mico"
+        }
+    ]
+}
