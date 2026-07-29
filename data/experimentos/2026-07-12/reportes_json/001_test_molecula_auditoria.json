@@ -1,0 +1,81 @@
+{
+    "identificador_serial": "001_test_molecula",
+    "archivo_origen": "test_molecula",
+    "fecha_procesamiento": "2026-07-12 19:13:25",
+    "status_calidad": "PASSED",
+    "metrics": {
+        "dist_max_A": 1.5134,
+        "num_anomalias": 0,
+        "tiene_atomos_aislados": false,
+        "formula_estequiometrica": {
+            "O": 1,
+            "H": 2
+        }
+    },
+    "quimica": {
+        "smiles_openbabel": "O",
+        "smiles_rdkit": "[H]O[H]",
+        "validacion_cruzada_smiles": false,
+        "coincidencia_exacta_vecinos": true
+    },
+    "auditoria_entornos_conectados_rdkit_vs_openbabel": [
+        {
+            "atomo_idx": 0,
+            "simbolo": "O",
+            "cantidad_vecinos_rdkit": 2,
+            "cantidad_vecinos_openbabel": 2,
+            "vecinos_rd_idx": [
+                1,
+                2
+            ],
+            "vecinos_ob_idx": [
+                1,
+                2
+            ],
+            "coinciden_vecinos": true,
+            "vecinos_conectados_rdkit": [
+                "H(1)",
+                "H(2)"
+            ],
+            "esta_rodeado": false,
+            "status_coordinacion": "CONECTADO NORMAL"
+        },
+        {
+            "atomo_idx": 1,
+            "simbolo": "H",
+            "cantidad_vecinos_rdkit": 1,
+            "cantidad_vecinos_openbabel": 1,
+            "vecinos_rd_idx": [
+                0
+            ],
+            "vecinos_ob_idx": [
+                0
+            ],
+            "coinciden_vecinos": true,
+            "vecinos_conectados_rdkit": [
+                "O(0)"
+            ],
+            "esta_rodeado": false,
+            "status_coordinacion": "CONECTADO NORMAL"
+        },
+        {
+            "atomo_idx": 2,
+            "simbolo": "H",
+            "cantidad_vecinos_rdkit": 1,
+            "cantidad_vecinos_openbabel": 1,
+            "vecinos_rd_idx": [
+                0
+            ],
+            "vecinos_ob_idx": [
+                0
+            ],
+            "coinciden_vecinos": true,
+            "vecinos_conectados_rdkit": [
+                "O(0)"
+            ],
+            "esta_rodeado": false,
+            "status_coordinacion": "CONECTADO NORMAL"
+        }
+    ],
+    "detalles_anomalias": []
+}
