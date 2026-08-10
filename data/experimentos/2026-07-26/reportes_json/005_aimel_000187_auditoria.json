@@ -1,0 +1,286 @@
+{
+    "identificador_serial": "005_aimel_000187",
+    "archivo_origen": "aimel_000187",
+    "fecha_procesamiento": "2026-07-26 18:11:30",
+    "status_calidad": "PASSED",
+    "metrics": {
+        "dist_max_A": 4.4493,
+        "num_anomalias": 0,
+        "tiene_atomos_aislados": false,
+        "formula_estequiometrica": {
+            "O": 1,
+            "C": 3,
+            "N": 2,
+            "H": 4
+        }
+    },
+    "quimica": {
+        "smiles_openbabel": "O=c1[nH]cc[nH]1",
+        "smiles_rdkit": "[H]c1c([H])n([H])c(=O)n1[H]",
+        "validacion_cruzada_smiles": false,
+        "coincidencia_exacta_metodos_conectividad": true
+    },
+    "auditoria_entornos_conectados_geometria_vs_rdkit_vs_openbabel": [
+        {
+            "atomo_idx": 0,
+            "simbolo": "O",
+            "cantidad_vecinos_geometria_pares": 1,
+            "cantidad_vecinos_rdkit": 1,
+            "cantidad_vecinos_openbabel": 1,
+            "vecinos_pares_idx": [
+                1
+            ],
+            "vecinos_rd_idx": [
+                1
+            ],
+            "vecinos_ob_idx": [
+                1
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "C(1)"
+            ],
+            "esta_rodeado": false,
+            "status_coordinacion": "CONECTADO PARCIAL"
+        },
+        {
+            "atomo_idx": 1,
+            "simbolo": "C",
+            "cantidad_vecinos_geometria_pares": 3,
+            "cantidad_vecinos_rdkit": 3,
+            "cantidad_vecinos_openbabel": 3,
+            "vecinos_pares_idx": [
+                0,
+                2,
+                5
+            ],
+            "vecinos_rd_idx": [
+                0,
+                2,
+                5
+            ],
+            "vecinos_ob_idx": [
+                0,
+                2,
+                5
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "O(0)",
+                "N(2)",
+                "N(5)"
+            ],
+            "esta_rodeado": false,
+            "status_coordinacion": "CONECTADO PARCIAL"
+        },
+        {
+            "atomo_idx": 2,
+            "simbolo": "N",
+            "cantidad_vecinos_geometria_pares": 3,
+            "cantidad_vecinos_rdkit": 3,
+            "cantidad_vecinos_openbabel": 3,
+            "vecinos_pares_idx": [
+                1,
+                3,
+                6
+            ],
+            "vecinos_rd_idx": [
+                1,
+                3,
+                6
+            ],
+            "vecinos_ob_idx": [
+                1,
+                3,
+                6
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "C(1)",
+                "C(3)",
+                "H(6)"
+            ],
+            "esta_rodeado": true,
+            "status_coordinacion": "RODEADO / COMPLETO"
+        },
+        {
+            "atomo_idx": 3,
+            "simbolo": "C",
+            "cantidad_vecinos_geometria_pares": 3,
+            "cantidad_vecinos_rdkit": 3,
+            "cantidad_vecinos_openbabel": 3,
+            "vecinos_pares_idx": [
+                2,
+                4,
+                7
+            ],
+            "vecinos_rd_idx": [
+                2,
+                4,
+                7
+            ],
+            "vecinos_ob_idx": [
+                2,
+                4,
+                7
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "N(2)",
+                "C(4)",
+                "H(7)"
+            ],
+            "esta_rodeado": false,
+            "status_coordinacion": "CONECTADO PARCIAL"
+        },
+        {
+            "atomo_idx": 4,
+            "simbolo": "C",
+            "cantidad_vecinos_geometria_pares": 3,
+            "cantidad_vecinos_rdkit": 3,
+            "cantidad_vecinos_openbabel": 3,
+            "vecinos_pares_idx": [
+                3,
+                5,
+                8
+            ],
+            "vecinos_rd_idx": [
+                3,
+                5,
+                8
+            ],
+            "vecinos_ob_idx": [
+                3,
+                5,
+                8
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "C(3)",
+                "N(5)",
+                "H(8)"
+            ],
+            "esta_rodeado": false,
+            "status_coordinacion": "CONECTADO PARCIAL"
+        },
+        {
+            "atomo_idx": 5,
+            "simbolo": "N",
+            "cantidad_vecinos_geometria_pares": 3,
+            "cantidad_vecinos_rdkit": 3,
+            "cantidad_vecinos_openbabel": 3,
+            "vecinos_pares_idx": [
+                1,
+                4,
+                9
+            ],
+            "vecinos_rd_idx": [
+                1,
+                4,
+                9
+            ],
+            "vecinos_ob_idx": [
+                1,
+                4,
+                9
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "C(4)",
+                "C(1)",
+                "H(9)"
+            ],
+            "esta_rodeado": true,
+            "status_coordinacion": "RODEADO / COMPLETO"
+        },
+        {
+            "atomo_idx": 6,
+            "simbolo": "H",
+            "cantidad_vecinos_geometria_pares": 1,
+            "cantidad_vecinos_rdkit": 1,
+            "cantidad_vecinos_openbabel": 1,
+            "vecinos_pares_idx": [
+                2
+            ],
+            "vecinos_rd_idx": [
+                2
+            ],
+            "vecinos_ob_idx": [
+                2
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "N(2)"
+            ],
+            "esta_rodeado": true,
+            "status_coordinacion": "RODEADO / COMPLETO"
+        },
+        {
+            "atomo_idx": 7,
+            "simbolo": "H",
+            "cantidad_vecinos_geometria_pares": 1,
+            "cantidad_vecinos_rdkit": 1,
+            "cantidad_vecinos_openbabel": 1,
+            "vecinos_pares_idx": [
+                3
+            ],
+            "vecinos_rd_idx": [
+                3
+            ],
+            "vecinos_ob_idx": [
+                3
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "C(3)"
+            ],
+            "esta_rodeado": true,
+            "status_coordinacion": "RODEADO / COMPLETO"
+        },
+        {
+            "atomo_idx": 8,
+            "simbolo": "H",
+            "cantidad_vecinos_geometria_pares": 1,
+            "cantidad_vecinos_rdkit": 1,
+            "cantidad_vecinos_openbabel": 1,
+            "vecinos_pares_idx": [
+                4
+            ],
+            "vecinos_rd_idx": [
+                4
+            ],
+            "vecinos_ob_idx": [
+                4
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "C(4)"
+            ],
+            "esta_rodeado": true,
+            "status_coordinacion": "RODEADO / COMPLETO"
+        },
+        {
+            "atomo_idx": 9,
+            "simbolo": "H",
+            "cantidad_vecinos_geometria_pares": 1,
+            "cantidad_vecinos_rdkit": 1,
+            "cantidad_vecinos_openbabel": 1,
+            "vecinos_pares_idx": [
+                5
+            ],
+            "vecinos_rd_idx": [
+                5
+            ],
+            "vecinos_ob_idx": [
+                5
+            ],
+            "coincidencia_exacta_metodos": true,
+            "vecinos_conectados_rdkit": [
+                "N(5)"
+            ],
+            "esta_rodeado": true,
+            "status_coordinacion": "RODEADO / COMPLETO"
+        }
+    ],
+    "detalles_anomalias": []
+}

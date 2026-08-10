@@ -66,9 +66,9 @@ def ejecutar_procesamiento(archivo_nombre):
         if smiles:
             with open(os.path.join(OUTPUT_DIR, f"{nombre_base}.smi"), "w") as f: f.write(smiles + "\n")
             with open(os.path.join(OUTPUT_DIR, f"{nombre_base}.xyz"), "w") as f: f.write(xyz_data)
-            print(f"✅ Procesado con éxito: {archivo_nombre}")
+            print(f"Procesado con éxito: {archivo_nombre}")
     except Exception as e:
-        print(f"❌ Error en {archivo_nombre}: {e}")
+        print(f"Error en {archivo_nombre}: {e}")
 
 if __name__ == "__main__":
     # Ejemplo: Procesar un archivo específico

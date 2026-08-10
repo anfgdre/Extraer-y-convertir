@@ -1,0 +1,22 @@
+{
+    "identificador_serial": "006_aimel_000146",
+    "archivo_origen": "aimel_000146",
+    "fecha_procesamiento": "2026-06-16 19:35:54",
+    "status_calidad": "PASSED",
+    "metrics": {
+        "dist_max_A": 4.1591,
+        "num_anomalias": 0,
+        "formula_estequiometrica": {
+            "O": 1,
+            "C": 3,
+            "N": 1,
+            "H": 5
+        }
+    },
+    "quimica": {
+        "smiles_openbabel": "O=C[C@H]1CN1",
+        "smiles_rdkit": "[H]C(=O)[C@]1([H])N([H])C1([H])[H]",
+        "validacion_cruzada_smiles": false
+    },
+    "detalles_anomalias": []
+}
