@@ -70,11 +70,10 @@ Fecha del Experimento : {FECHA_EXPERIMENTO}
 Hora de Ejecución     : {datetime.now().strftime("%H:%M:%S")}
 Estadísticas de Lote  : Organizado jerárquicamente en XYZ, JSON y PLOTS (Con aislamiento DEBUG).
 --------------------------------------------------
-- Filtro de Calidad: Validación por radios covalentes (choque dinámico adaptativo).
-- Umbral Inferior Absoluto: Alerta si d < 0.55 Å (Límite de colisión física nuclear).
+- Filtro de Calidad: Auditoría de distancias mínimas por par (vecino más cercano).
+- Umbrales de Choque: Alerta si d < 0.95 Å y Choque Crítico si d < 0.80 Å (átomos encimados).
 - Validación Cruzada Triple: Matriz de distancias por pares geométrica vs OpenBabel vs RDKit.
-- Test Visual: Histogramas individuales y globales de distribución de distancias con KDE adaptativo.
-- Límites de Distancia: Alerta en distancias excesivas > 15.0 Å.
+- Test Visual: Histogramas enfocados en distancias cortas (0.0 Å a 2.5 Å) con KDE adaptativo.
 - Análisis de Entorno: Conexiones reales por átomo, detección de fragmentos huérfanos y estado de coordinación.
 --------------------------------------------------
 """
@@ -114,65 +113,114 @@ def extraer_datos(ruta_archivo):
         print(f"Error leyendo {ruta_archivo}: {e}")
         return None, None, None
 
-def auditar_distancias(puntos, atomos):
-    """Calcula distancias, detecta colisiones reales y valida límites físicos."""
-    matriz = []
-    lista_dist = []
-    anomalias = []
-    n = len(puntos)
+def auditar_distancias_minimas(puntos, atomos, umbral_alerta_encimado=0.95, umbral_choque_critico=0.80):
+    """
+    Obtiene la matriz de distancias por pares, recupera la distancia MÍNIMA 
+    de cada átomo a su vecino más cercano y detecta átomos encimados.
     
+    Retorna:
+    - distancias_minimas_por_atomo: Lista con la menor distancia registrada para cada átomo.
+    - distancias_cortas_par: Distancias en el rango de interacción cercana (0.5 Å - 2.5 Å).
+    - anomalias: Átomos detectados con solapamiento/choque o distancia anormalmente corta.
+    - min_global: La distancia mínima absoluta en toda la estructura.
+    """
+    n = len(puntos)
+    if n < 2:
+        return [], [], [], 0.0, []
+
+    matriz_dist = [[0.0] * n for _ in range(n)]
+    matriz_reporte = []
+    distancias_minimas_por_atomo = []
+    distancias_cortas_par = []
+    anomalias = []
+    pares_evaluados = set()
+
+    # 1. Matriz completa de distancias por pares
     for i in range(n):
         for j in range(i + 1, n):
             d = math.sqrt(sum((a - b) ** 2 for a, b in zip(puntos[i], puntos[j])))
-            
-            r1 = RADIOS_COVALENTES.get(atomos[i], 0.75)
-            r2 = RADIOS_COVALENTES.get(atomos[j], 0.75)
-            umbral_choque = (r1 + r2) * 0.55
-            
-            if d < 0.55 or d < umbral_choque:
-                anomalias.append({
-                    "par": f"{atomos[i]}({i})-{atomos[j]}({j})",
-                    "distancia": round(d, 4),
-                    "tipo": "Choque Atómico"
-                })
-            
-            matriz.append({
+            matriz_dist[i][j] = d
+            matriz_dist[j][i] = d
+
+            matriz_reporte.append({
                 "de": f"{atomos[i]}({i})", 
                 "a": f"{atomos[j]}({j})", 
                 "dist_A": round(d, 4)
             })
-            lista_dist.append(d)
-            
-    dist_max = max(lista_dist) if lista_dist else 0
-    return matriz, lista_dist, dist_max, anomalias
 
-def generar_histograma_individual(distancias, serial_id, ruta_destino):
-    """Genera un análisis estadístico visual específico para un archivo del lote."""
-    if not distancias: return
-    
-    min_real = min(distancias)
-    max_real = max(distancias)
-    
-    plt.figure(figsize=(10, 5))
-    
-    if max_real < 15.0:
-        plt.xlim(0, max_real + 1.0)
-    else:
-        plt.xlim(0, max_real + 2.0)
+            if 0.5 <= d <= 2.5:
+                distancias_cortas_par.append(round(d, 4))
+
+    # 2. Búsqueda del vecino más cercano para cada átomo
+    for i in range(n):
+        distancias_vecinos = [(matriz_dist[i][j], j) for j in range(n) if i != j]
         
-    sns.histplot(distancias, bins=25, kde=True, color='royalblue', edgecolor='black', alpha=0.6)
+        if not distancias_vecinos:
+            continue
+            
+        dist_min, idx_vecino = min(distancias_vecinos, key=lambda x: x[0])
+        distancias_minimas_por_atomo.append(round(dist_min, 4))
+
+        r1 = RADIOS_COVALENTES.get(atomos[i], 0.75)
+        r2 = RADIOS_COVALENTES.get(atomos[idx_vecino], 0.75)
+        umbral_dinamico = (r1 + r2) * 0.60  # Factor de choque físico relativo
+
+        # Evaluamos anomalías sin duplicar pares
+        par_key = tuple(sorted([i, idx_vecino]))
+        if par_key not in pares_evaluados:
+            if dist_min < umbral_choque_critico or dist_min < umbral_dinamico:
+                anomalias.append({
+                    "par": f"{atomos[i]}({i})-{atomos[idx_vecino]}({idx_vecino})",
+                    "distancia_A": round(dist_min, 4),
+                    "tipo_error": "Choque Crítico / Átomos Encimados",
+                    "umbral_corte_A": round(umbral_dinamico, 4)
+                })
+                pares_evaluados.add(par_key)
+            elif dist_min < umbral_alerta_encimado:
+                anomalias.append({
+                    "par": f"{atomos[i]}({i})-{atomos[idx_vecino]}({idx_vecino})",
+                    "distancia_A": round(dist_min, 4),
+                    "tipo_error": f"Alerta Distancia Corta (< {umbral_alerta_encimado} Å)",
+                    "umbral_corte_A": umbral_alerta_encimado
+                })
+                pares_evaluados.add(par_key)
+
+    min_global = min(distancias_minimas_por_atomo) if distancias_minimas_por_atomo else 0.0
+
+    return distancias_minimas_por_atomo, distancias_cortas_par, anomalias, min_global, matriz_reporte
+
+def generar_histograma_distancias_cortas(distancias_minimas, serial_id, ruta_destino):
+    """
+    Grafica el histograma de las distancias MÍNIMAS al vecino más cercano,
+    enfocado estrictamente en el rango relevante para control de calidad (0.0 Å - 2.5 Å).
+    """
+    if not distancias_minimas: 
+        return
     
-    plt.axvline(0.55, color='red', linestyle='--', linewidth=1.5, label='Límite Choque Inferior (0.55Å)')
-    if max_real >= 14.0:
-        plt.axvline(15.0, color='darkred', linestyle=':', linewidth=2, label='Límite Superior Máx (15.0Å)')
+    min_real = min(distancias_minimas)
+    max_real = max(distancias_minimas)
+    
+    plt.figure(figsize=(9, 4.5))
+    
+    plt.xlim(0.0, max(2.5, max_real + 0.2))
         
-    plt.axvline(min_real, color='blue', linestyle='-.', linewidth=1.0, label=f'Mínimo Real ({min_real:.3f}Å)')
-    plt.axvline(max_real, color='orange', linestyle='-.', linewidth=1.0, label=f'Máximo Real ({max_real:.3f}Å)')
+    sns.histplot(
+        distancias_minimas, 
+        bins=25, 
+        kde=True, 
+        color='crimson' if min_real < 0.80 else 'royalblue', 
+        edgecolor='black', 
+        alpha=0.6
+    )
     
-    plt.title(f"Auditoría Individual de Distancias: {serial_id}")
-    plt.xlabel("Distancia (Å)")
-    plt.ylabel("Frecuencia")
-    plt.legend(loc='upper right')
+    plt.axvline(0.80, color='red', linestyle='--', linewidth=1.5, label='Choque Crítico (0.80Å)')
+    plt.axvline(0.95, color='orange', linestyle=':', linewidth=1.5, label='Alerta Encimado (0.95Å)')
+    plt.axvline(min_real, color='darkblue', linestyle='-.', linewidth=1.2, label=f'Mínimo Real ({min_real:.3f}Å)')
+    
+    plt.title(f"Auditoría de Distancias Mínimas al Vecino Más Cercano: {serial_id}", fontsize=11, fontweight='bold')
+    plt.xlabel("Distancia al Vecino Más Cercano (Å)", fontsize=10)
+    plt.ylabel("Frecuencia de Átomos", fontsize=10)
+    plt.legend(loc='upper right', fontsize=8)
     plt.grid(axis='y', alpha=0.3)
     
     os.makedirs(ruta_destino, exist_ok=True)
@@ -180,10 +228,7 @@ def generar_histograma_individual(distancias, serial_id, ruta_destino):
     plt.close()
 
 def obtener_vecinos_por_radio(puntos, atomos, idx_atomo=1, radio_angstrom=2.0):
-    """
-    Retorna la lista y cantidad de átomos dentro de un radio fijo en Ångstroms
-    alrededor de un átomo objetivo.
-    """
+    """Retorna los átomos dentro de un radio fijo en Ångstroms alrededor de un átomo objetivo."""
     p_ref = puntos[idx_atomo]
     vecinos_en_radio = []
     
@@ -200,36 +245,36 @@ def obtener_vecinos_por_radio(puntos, atomos, idx_atomo=1, radio_angstrom=2.0):
             
     return vecinos_en_radio, len(vecinos_en_radio)
 
-def generar_histograma_global(distancias_globales, ruta_destino):
-    """Genera un análisis estadístico visual enfocado con límites adaptativos inteligentes."""
-    if not distancias_globales: 
+def generar_histograma_global(distancias_minimas_globales, ruta_destino):
+    """Genera un análisis estadístico acumulado del lote enfocado en distancias cortas/mínimas."""
+    if not distancias_minimas_globales: 
         print("[!] No hay datos de distancias para graficar.")
         return
         
-    min_real = min(distancias_globales)
-    max_real = max(distancias_globales)
+    min_real = min(distancias_minimas_globales)
+    max_real = max(distancias_minimas_globales)
     
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(11, 5.5))
+    plt.xlim(0.0, max(2.5, max_real + 0.2))
     
-    if max_real < 15.0:
-        plt.xlim(0, max_real + 1.0)
-    else:
-        plt.xlim(0, max_real + 2.0)
+    sns.histplot(
+        distancias_minimas_globales, 
+        bins=50, 
+        kde=True, 
+        color='purple', 
+        edgecolor='black', 
+        alpha=0.7
+    )
     
-    sns.histplot(distancias_globales, bins=60, kde=True, color='purple', edgecolor='black', alpha=0.7)
-    
-    plt.axvline(0.55, color='red', linestyle='--', linewidth=1.5, label='Umbral Choque Inferior (0.55Å)')
-    if max_real >= 14.0: 
-        plt.axvline(15.0, color='darkred', linestyle=':', linewidth=2, label='Umbral Max Superior (15.0Å)')
-    
-    plt.axvline(min_real, color='blue', linestyle='-.', linewidth=1.2, label=f'Mínimo Real ({min_real:.3f}Å)')
-    plt.axvline(max_real, color='orange', linestyle='-.', linewidth=1.2, label=f'Máximo Real ({max_real:.3f}Å)')
+    plt.axvline(0.80, color='red', linestyle='--', linewidth=1.5, label='Límite Encimado Crítico (0.80Å)')
+    plt.axvline(0.95, color='orange', linestyle=':', linewidth=1.5, label='Umbral Alerta Encimado (0.95Å)')
+    plt.axvline(min_real, color='blue', linestyle='-.', linewidth=1.2, label=f'Mínimo Global ({min_real:.3f}Å)')
     
     hora_actual = datetime.now().strftime("%H:%M:%S")
-    plt.title(f"Auditoría Global de Distancias - Experimento: {FECHA_EXPERIMENTO} ({hora_actual})", fontsize=13, fontweight='bold')
-    plt.xlabel("Distancia Interatómica (Å)", fontsize=11)
-    plt.ylabel("Frecuencia Acumulada", fontsize=11)
-    plt.legend(loc='upper right', frameon=True, facecolor='white', edgecolor='none')
+    plt.title(f"Auditoría Global de Distancias Mínimas - Experimento: {FECHA_EXPERIMENTO} ({hora_actual})", fontsize=12, fontweight='bold')
+    plt.xlabel("Distancia al Vecino Más Cercano (Å)", fontsize=10)
+    plt.ylabel("Frecuencia Acumulada", fontsize=10)
+    plt.legend(loc='upper right', frameon=True, facecolor='white')
     plt.grid(axis='y', alpha=0.3)
     
     stamp_archivo = datetime.now().strftime("%H%M%S")
@@ -244,11 +289,7 @@ def generar_histograma_global(distancias_globales, ruta_destino):
     print(f"\n[+] Histograma GLOBAL guardado en PLOTS -> {archivo_salida}")
 
 def determinar_conectividad_por_pares(puntos, atomos, factor_tolerancia=1.20):
-    """
-    Determina la conectividad directa por pares atómicos basada puramente
-    en la suma de radios covalentes escalados por un factor de tolerancia.
-    Evita fallos de inferencia de topología de RDKit/OpenBabel.
-    """
+    """Determina conectividad por radios covalentes escalados por factor de tolerancia."""
     n = len(atomos)
     vecinos_por_pares = {i: [] for i in range(n)}
     
@@ -260,7 +301,6 @@ def determinar_conectividad_por_pares(puntos, atomos, factor_tolerancia=1.20):
             
             d = math.sqrt(sum((a - b) ** 2 for a, b in zip(puntos[i], puntos[j])))
             
-            # Si la distancia es adecuada para formar enlace covalente
             if 0.55 <= d <= umbral_enlace:
                 vecinos_por_pares[i].append(j)
                 vecinos_por_pares[j].append(i)
@@ -272,7 +312,7 @@ def determinar_conectividad_por_pares(puntos, atomos, factor_tolerancia=1.20):
 
 def validar_y_analizar_entorno(xyz_block, puntos, atomos):
     """
-    Auditoría estricta de entornos comparando:
+    Auditoría estricta comparando:
     1. Distancias directas por pares (Geometría pura)
     2. Enlaces percibidos por RDKit
     3. Enlaces percibidos por OpenBabel
@@ -283,10 +323,8 @@ def validar_y_analizar_entorno(xyz_block, puntos, atomos):
     tiene_atomos_aislados = False
     coinciden_vecinos_global = True
     
-    # 1. Conectividad robusta puramente geométrica por pares (Base 0)
     vecinos_pares = determinar_conectividad_por_pares(puntos, atomos, factor_tolerancia=1.20)
     
-    # 2. Conectividad OpenBabel
     vecinos_openbabel = {}
     obConv = openbabel.OBConversion()
     obConv.SetInAndOutFormats("xyz", "smi")
@@ -302,7 +340,6 @@ def validar_y_analizar_entorno(xyz_block, puntos, atomos):
             vecinos_idx = [vecino_ob.GetIdx() - 1 for vecino_ob in openbabel.OBAtomAtomIter(atomo_ob)]
             vecinos_openbabel[idx_0] = sorted(vecinos_idx)
 
-    # 3. Conectividad RDKit y Triple Comparación
     try:
         mol_rd = Chem.MolFromXYZBlock(xyz_block)
         if mol_rd:
@@ -321,16 +358,14 @@ def validar_y_analizar_entorno(xyz_block, puntos, atomos):
                 vecinos_ob_idx = vecinos_openbabel.get(idx, [])
                 vecinos_par_idx = vecinos_pares.get(idx, [])
                 
-                num_vecinos = len(vecinos_par_idx) # Usamos los vecinos geométricos reales por pares como referencia
+                num_vecinos = len(vecinos_par_idx)
                 if num_vecinos == 0:
                     tiene_atomos_aislados = True
                 
-                # Comprobar si las tres aproximaciones coinciden
                 coinciden_vecinos_atomo = (vecinos_rd_idx == vecinos_ob_idx == vecinos_par_idx)
                 if not coinciden_vecinos_atomo:
                     coinciden_vecinos_global = False
                 
-                # Criterio adaptativo de "rodeado/completo" según el elemento químico
                 max_esperado = VALENCIA_REFERENCIA.get(simbolo, 4)
                 esta_rodeado = num_vecinos >= max_esperado
                 
@@ -356,7 +391,7 @@ def validar_y_analizar_entorno(xyz_block, puntos, atomos):
 def ejecutar_procesamiento(rutas_input, activar_reportes_opcionales):
     """Procesa los archivos .sumviz mapeándolos y separándolos físicamente por estatus."""
     archivos = []
-    distancias_totales_globales = []
+    distancias_minimas_globales = []
     
     for ruta_item in rutas_input:
         ruta_absolute = os.path.normpath(os.path.join(BASE_DIR, ruta_item)) if not os.path.isabs(ruta_item) else ruta_item
@@ -375,7 +410,6 @@ def ejecutar_procesamiento(rutas_input, activar_reportes_opcionales):
         print(f"\n[!] Sin archivos .sumviz para procesar.")
         return
 
-    # Generamos la documentación base del experimento
     generar_readme(EXP_OUTPUT_DIR)
 
     print(f"\n[*] Procesando lote en el experimento {FECHA_EXPERIMENTO} ({len(archivos)} archivos)...")
@@ -388,21 +422,24 @@ def ejecutar_procesamiento(rutas_input, activar_reportes_opcionales):
         
         if coords:
             xyz_block = f"{len(coords)}\n{nombre}\n" + "\n".join(coords)
-            matriz, lista_dist, dist_max, anomalias = auditar_distancias(puntos, atomos)
             
-            # Ejecución del validador pasando las coordenadas y símbolos de átomos
+            # Auditoría enfocada en MÍNIMAS DISTANCIAS y SOLAPAMIENTOS
+            dist_minimas_atomos, dist_cortas_par, anomalias_choque, min_dist_global, matriz_reporte = auditar_distancias_minimas(
+                puntos, atomos, umbral_alerta_encimado=0.95, umbral_choque_critico=0.80
+            )
+            
+            distancias_minimas_globales.extend(dist_minimas_atomos)
+            
             ob_ok, rd_ok, smi_ob, smi_rd, analisis_entorno, tiene_atomos_aislados, coinciden_vecinos_global = validar_y_analizar_entorno(xyz_block, puntos, atomos)
             
-            distancias_totales_globales.extend(lista_dist)
-            num_choques = len(anomalias)
+            num_choques = len(anomalias_choque)
             
             # Evaluación lógica de calidad
-            es_anomalo = not (ob_ok and rd_ok) or (dist_max > 15.0) or (num_choques > 0) or tiene_atomos_aislados or not coinciden_vecinos_global
+            es_anomalo = (min_dist_global < 0.80) or (num_choques > 0) or not (ob_ok and rd_ok) or tiene_atomos_aislados or not coinciden_vecinos_global
             status_str = "DEBUG" if es_anomalo else "PASSED"
             
             debe_escribir_reporte = es_anomalo or activar_reportes_opcionales
             
-            # ASIGNACIÓN DE RUTAS DINÁMICAS
             if es_anomalo:
                 destino_xyz = DEBUG_XYZ_DIR
                 destino_json = DEBUG_JSON_DIR
@@ -412,17 +449,21 @@ def ejecutar_procesamiento(rutas_input, activar_reportes_opcionales):
                 destino_json = JSON_DIR
                 destino_plots = PLOTS_INDIV_DIR
 
-            # --- GUARDADO EN DIRECTORIO ASIGNADO ---
             # 1. Guardar Estructura Molecular (.xyz)
             os.makedirs(destino_xyz, exist_ok=True)
             with open(os.path.join(destino_xyz, f"{serial_id}.xyz"), "w") as f: 
                 f.write(xyz_block)
             
-            # 2. Guardar Reportes Estructurados (.json) -> Solo si es DEBUG o si el usuario eligió SÍ
+            # 2. Guardar Reportes Estructurados (.json)
             if debe_escribir_reporte:
                 os.makedirs(destino_json, exist_ok=True)
                 
-                reporte_distancias = {"matriz": matriz, "alertas": anomalias}
+                reporte_distancias = {
+                    "distancias_minimas_por_atomo": dist_minimas_atomos,
+                    "distancia_minima_absoluta_A": min_dist_global,
+                    "matriz_por_pares": matriz_reporte,
+                    "alertas_solapamiento": anomalias_choque
+                }
                 with open(os.path.join(destino_json, f"{serial_id}_distancias.json"), "w") as f: 
                     json.dump(reporte_distancias, f, indent=2)
 
@@ -432,8 +473,8 @@ def ejecutar_procesamiento(rutas_input, activar_reportes_opcionales):
                     "fecha_procesamiento": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "status_calidad": status_str,
                     "metrics": {
-                        "dist_max_A": round(dist_max, 4),
-                        "num_anomalias": num_choques,
+                        "dist_minima_absoluta_A": round(min_dist_global, 4),
+                        "num_anomalias_choque": num_choques,
                         "tiene_atomos_aislados": tiene_atomos_aislados,
                         "formula_estequiometrica": dict(Counter(atomos))
                     },
@@ -444,26 +485,26 @@ def ejecutar_procesamiento(rutas_input, activar_reportes_opcionales):
                         "coincidencia_exacta_metodos_conectividad": coinciden_vecinos_global
                     },
                     "auditoria_entornos_conectados_geometria_vs_rdkit_vs_openbabel": analisis_entorno,
-                    "detalles_anomalias": anomalias
+                    "detalles_anomalias": anomalias_choque
                 }
                 
                 with open(os.path.join(destino_json, f"{serial_id}_auditoria.json"), "w") as f:
                     json.dump(auditoria_molecular, f, indent=4)
             
-            # 3. Guardar el histograma individual condicionalmente
+            # 3. Guardar el histograma individual de distancias mínimas
             if debe_escribir_reporte:
-                generar_histograma_individual(lista_dist, serial_id, destino_plots)
+                generar_histograma_distancias_cortas(dist_minimas_atomos, serial_id, destino_plots)
                 
-            print(f" [{status_str}]: {serial_id} | Choques: {num_choques} | Max: {dist_max:.2f}Å | Métodos Coinciden?: {coinciden_vecinos_global}")
+            print(f" [{status_str}]: {serial_id} | Mínima: {min_dist_global:.3f}Å | Choques: {num_choques} | Coinciden Métodos?: {coinciden_vecinos_global}")
 
     # --- GENERACIÓN DEL PLOT GLOBAL ---
-    generar_histograma_global(distancias_totales_globales, PLOTS_DIR)
+    generar_histograma_global(distancias_minimas_globales, PLOTS_DIR)
 
     print(f"\n--- Experimento {FECHA_EXPERIMENTO} Finalizado con Éxito ---")
     print(f"[➔] Datos estructurados en: {EXP_OUTPUT_DIR}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Procesador Molecular con Serialización Cronológica Estricta.")
+    parser = argparse.ArgumentParser(description="Procesador Molecular con Auditoría de Distancias Mínimas.")
     parser.add_argument('rutas', nargs='*', help='Rutas de carpetas con archivos .sumviz')
     args = parser.parse_args()
     
